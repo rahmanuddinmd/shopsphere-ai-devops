@@ -84,3 +84,4 @@ session with `bash scripts/aws-cleanup.sh`.
 
 ## License
 [MIT](LICENSE)
+# shopsphere-ai-devops
