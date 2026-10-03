@@ -1,0 +1,19 @@
+# Tells the Prometheus Operator (kube-prometheus-stack) to scrape the backend's /actuator/prometheus.
+# Apply after installing the chart: kubectl apply -f kubernetes/monitoring/
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: shopsphere-backend
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack     # must match the chart's serviceMonitorSelector
+spec:
+  namespaceSelector:
+    matchNames: [shopsphere-dev, shopsphere-staging, shopsphere-prod]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 30s

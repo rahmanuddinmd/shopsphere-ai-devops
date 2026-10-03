@@ -1,0 +1,34 @@
+# Internet -> ALB -> pods. The AWS Load Balancer Controller creates the ALB from this object.
+# COST: one ALB (~$0.02-0.03/hour + LCU) while this Ingress exists. kubectl delete ingress or
+# scripts/destroy.sh removes it; always do that BEFORE terraform destroy.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shopsphere
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=90
+    alb.ingress.kubernetes.io/tags: Project=ShopSphere,Environment=dev,ManagedBy=AWSLoadBalancerController
+    # HTTPS (Phase 23): add an ACM certificate ARN and redirect HTTP to HTTPS
+    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:<YOUR_AWS_REGION>:<YOUR_AWS_ACCOUNT_ID>:certificate/<ID>
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    # alb.ingress.kubernetes.io/ssl-redirect: "443"
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service: { name: backend, port: { number: 8080 } }
+          - path: /actuator/health
+            pathType: Prefix
+            backend:
+              service: { name: backend, port: { number: 8080 } }
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: frontend, port: { number: 80 } }

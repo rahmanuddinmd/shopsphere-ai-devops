@@ -1,0 +1,31 @@
+# Prometheus for the LOCAL Docker Compose environment.
+# On EKS, kube-prometheus-stack + kubernetes/monitoring/servicemonitor.yaml do the same job.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: local
+
+rule_files:
+  - /etc/prometheus/alert-rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: shopsphere-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["backend:8080"]
+        labels:
+          application: shopsphere-backend
+
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]

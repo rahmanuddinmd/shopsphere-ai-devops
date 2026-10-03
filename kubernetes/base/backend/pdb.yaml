@@ -1,0 +1,10 @@
+# Keeps at least one backend pod running during voluntary disruptions (node drain, upgrades).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend

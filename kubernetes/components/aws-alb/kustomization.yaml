@@ -1,0 +1,9 @@
+# Reusable AWS pieces for every EKS environment: ALB Ingress, per-Service ALB health checks,
+# and the default gp3 StorageClass (EBS CSI driver).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - ingress.yaml
+  - storageclass-gp3.yaml
+patches:
+  - path: alb-healthcheck-patch.yaml

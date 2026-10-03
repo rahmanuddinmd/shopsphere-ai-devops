@@ -1,0 +1,61 @@
+# =====================================================================
+# ShopSphere frontend - Nginx (nginx-unprivileged listens on 8080, non-root)
+# Rendered at container start by the image's envsubst step:
+#   ${BACKEND_URL} -> e.g. http://backend:8080 (Compose service / Kubernetes Service)
+# On EKS the Ingress routes /api straight to the backend; this proxy makes the same
+# image also work with docker compose and kubectl port-forward.
+# =====================================================================
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    server_tokens off;
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+    # Health endpoint for Docker HEALTHCHECK, Kubernetes probes and ALB target health
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location /api/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 90s;   # AI answers can take a while on CPU-only Ollama
+    }
+
+    location = /actuator/health {
+        proxy_pass ${BACKEND_URL};
+    }
+
+    # Fingerprinted build assets: cache for a year
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    location /images/ {
+        expires 7d;
+        add_header Cache-Control "public" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # SPA fallback: React Router handles /products/1, /admin, ...
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    }
+}

@@ -1,0 +1,12 @@
+---
+common_timezone: "Asia/Kolkata"
+common_swap_size_mb: 4096
+common_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - git
+  - jq
+  - unzip
+  - htop
+  - unattended-upgrades

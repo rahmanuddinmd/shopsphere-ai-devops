@@ -1,0 +1,75 @@
+# Kubernetes + application alerts evaluated by Prometheus on EKS.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: shopsphere-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: shopsphere-kubernetes
+      rules:
+        - alert: ShopSpherePodCrashLooping
+          expr: max_over_time(kube_pod_container_status_waiting_reason{namespace=~"shopsphere-.*", reason="CrashLoopBackOff"}[5m]) >= 1
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is in CrashLoopBackOff"
+            description: "kubectl logs {{ $labels.pod }} -n {{ $labels.namespace }} --previous"
+        - alert: ShopSpherePodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace=~"shopsphere-.*"}[30m]) > 3
+          labels: { severity: warning }
+          annotations:
+            summary: "Pod {{ $labels.pod }} restarted more than 3 times in 30 minutes"
+            description: "Check kubectl describe pod for OOMKilled or probe failures."
+        - alert: ShopSphereDeploymentUnavailable
+          expr: kube_deployment_status_replicas_available{namespace=~"shopsphere-.*"} < kube_deployment_spec_replicas{namespace=~"shopsphere-.*"}
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "Deployment {{ $labels.deployment }} has fewer available replicas than desired"
+            description: "kubectl rollout status deploy/{{ $labels.deployment }} -n {{ $labels.namespace }}"
+        - alert: ShopSphereNodeNotReady
+          expr: kube_node_status_condition{condition="Ready", status="true"} == 0
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: "Node {{ $labels.node }} is not Ready"
+            description: "kubectl describe node {{ $labels.node }}"
+        - alert: ShopSphereContainerHighMemory
+          expr: |
+            sum by (namespace, pod) (container_memory_working_set_bytes{namespace=~"shopsphere-.*", container!=""})
+              / sum by (namespace, pod) (kube_pod_container_resource_limits{namespace=~"shopsphere-.*", resource="memory"}) > 0.9
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "Pod {{ $labels.pod }} uses more than 90% of its memory limit"
+            description: "Risk of OOMKilled. Check JVM heap in Grafana."
+        - alert: ShopSphereContainerHighCpu
+          expr: |
+            sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{namespace=~"shopsphere-.*", container!=""}[5m]))
+              / sum by (namespace, pod) (kube_pod_container_resource_limits{namespace=~"shopsphere-.*", resource="cpu"}) > 0.9
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: "Pod {{ $labels.pod }} uses more than 90% of its CPU limit"
+            description: "Consider HPA limits or more replicas."
+    - name: shopsphere-application
+      rules:
+        - alert: ShopSphereHigh5xxRate
+          expr: |
+            sum by (namespace) (rate(http_server_requests_seconds_count{namespace=~"shopsphere-.*", status=~"5.."}[5m]))
+              / clamp_min(sum by (namespace) (rate(http_server_requests_seconds_count{namespace=~"shopsphere-.*"}[5m])), 0.001) > 0.05
+          for: 5m
+          labels: { severity: critical }
+          annotations:
+            summary: "More than 5% 5xx responses in {{ $labels.namespace }}"
+            description: "Check backend logs and the ShopSphere - Application dashboard."
+        - alert: ShopSphereBackendDown
+          expr: absent(up{namespace="shopsphere-dev", service="backend"} == 1)
+          for: 3m
+          labels: { severity: critical }
+          annotations:
+            summary: "No healthy backend target in shopsphere-dev"
+            description: "Prometheus cannot scrape any backend pod."

@@ -1,0 +1,11 @@
+---
+shopsphere_ci_repo_url: "https://github.com/rahmanuddinmd/shopsphere-ai-devops.git"
+shopsphere_ci_repo_branch: "develop"
+shopsphere_ci_dir: "/opt/shopsphere"
+shopsphere_ci_compose_profiles: ["ci"]
+shopsphere_ci_enable_jcasc: false
+shopsphere_ci_owner: "{{ ansible_user | default('ubuntu') }}"
+shopsphere_ci_ports:
+  - { name: Jenkins, port: 8085, path: /login }
+  - { name: SonarQube, port: 9000, path: /api/system/status }
+  - { name: Nexus, port: 8081, path: /service/rest/v1/status }

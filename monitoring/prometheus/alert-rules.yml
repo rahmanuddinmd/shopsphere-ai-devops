@@ -1,0 +1,68 @@
+# Alert rules for the local environment (Prometheus rule file format).
+# Severity: critical = page someone, warning = look during working hours.
+groups:
+  - name: shopsphere-application
+    rules:
+      - alert: ShopSphereBackendDown
+        expr: up{job="shopsphere-backend"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "ShopSphere backend is unreachable"
+          description: "Prometheus cannot scrape {{ $labels.instance }} for 1 minute."
+
+      - alert: ShopSphereHigh5xxRate
+        expr: |
+          sum(rate(http_server_requests_seconds_count{application="shopsphere-backend", status=~"5.."}[5m]))
+            / clamp_min(sum(rate(http_server_requests_seconds_count{application="shopsphere-backend"}[5m])), 0.001) > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "More than 5% of API requests fail with 5xx"
+          description: "5xx ratio is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: ShopSphereSlowResponses
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application="shopsphere-backend", uri!~"/api/ai/.*"}[5m]))) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 API latency above 1 second"
+          description: "p95 latency is {{ $value | humanizeDuration }}."
+
+      - alert: ShopSphereJvmHeapHigh
+        expr: |
+          sum(jvm_memory_used_bytes{application="shopsphere-backend", area="heap"})
+            / sum(jvm_memory_max_bytes{application="shopsphere-backend", area="heap"}) > 0.85
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "JVM heap above 85%"
+          description: "Heap usage is {{ $value | humanizePercentage }}."
+
+  - name: shopsphere-host
+    rules:
+      - alert: HostHighCpu
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU usage {{ $value | printf \"%.0f\" }}% for 10 minutes."
+
+      - alert: HostHighMemory
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "High memory on {{ $labels.instance }}"
+          description: "Memory usage {{ $value | printf \"%.0f\" }}%."
+
+      - alert: HostDiskAlmostFull
+        expr: |
+          (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) * 100 > 85
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "Disk {{ $labels.mountpoint }} above 85%"
+          description: "Clean old Docker images: docker system df (prune only after checking)."

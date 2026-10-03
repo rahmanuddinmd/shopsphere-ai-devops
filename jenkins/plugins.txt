@@ -1,0 +1,19 @@
+# Jenkins plugins for the ShopSphere pipeline (installed at image build time)
+workflow-aggregator
+pipeline-stage-view
+git
+github
+github-branch-source
+credentials-binding
+aws-credentials
+pipeline-aws
+sonar
+docker-workflow
+junit
+jacoco
+htmlpublisher
+pipeline-utility-steps
+timestamper
+ws-cleanup
+configuration-as-code
+build-discarder

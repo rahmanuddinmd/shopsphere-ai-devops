@@ -1,0 +1,10 @@
+# Loads every JSON dashboard in /var/lib/grafana/dashboards (mounted from monitoring/dashboards).
+apiVersion: 1
+providers:
+  - name: shopsphere
+    folder: ShopSphere
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

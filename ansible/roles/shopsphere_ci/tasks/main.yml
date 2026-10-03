@@ -1,0 +1,61 @@
+---
+- name: Create the application directory owned by the deploy user
+  ansible.builtin.file:
+    path: "{{ shopsphere_ci_dir }}"
+    state: directory
+    owner: "{{ shopsphere_ci_owner }}"
+    group: "{{ shopsphere_ci_owner }}"
+    mode: "0755"
+
+- name: Clone or update the ShopSphere repository (as the deploy user)
+  ansible.builtin.git:
+    repo: "{{ shopsphere_ci_repo_url }}"
+    dest: "{{ shopsphere_ci_dir }}"
+    version: "{{ shopsphere_ci_repo_branch }}"
+    update: true
+  become: false
+
+- name: Check whether .env already exists (never overwrite generated secrets)
+  ansible.builtin.stat:
+    path: "{{ shopsphere_ci_dir }}/.env"
+  register: shopsphere_ci_env
+
+- name: Create .env with generated secrets (first run only)
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ shopsphere_ci_dir }}/.env"
+    owner: "{{ shopsphere_ci_owner }}"
+    group: "{{ shopsphere_ci_owner }}"
+    mode: "0600"
+  when: not shopsphere_ci_env.stat.exists
+  no_log: true
+
+- name: Start the CI stack with Docker Compose
+  ansible.builtin.command:
+    cmd: >-
+      docker compose
+      {% for p in shopsphere_ci_compose_profiles %}--profile {{ p }} {% endfor %}
+      up -d --build
+    chdir: "{{ shopsphere_ci_dir }}"
+  register: shopsphere_ci_compose
+  changed_when: "'Started' in shopsphere_ci_compose.stderr or 'Created' in shopsphere_ci_compose.stderr"
+
+- name: Wait for the tools to answer on their ports (first start can take several minutes)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ item.port }}{{ item.path }}"
+    status_code: [200, 403]
+  register: shopsphere_ci_health
+  until: shopsphere_ci_health.status in [200, 403]
+  retries: 60
+  delay: 10
+  loop: "{{ shopsphere_ci_ports }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Show next steps
+  ansible.builtin.debug:
+    msg:
+      - "Jenkins   http://{{ ansible_host }}:8085   initial password: docker compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword"
+      - "SonarQube http://{{ ansible_host }}:9000   default login admin/admin (change it)"
+      - "Nexus     http://{{ ansible_host }}:8081   initial password: docker compose exec nexus cat /nexus-data/admin.password"
+      - "Run those commands on the server in {{ shopsphere_ci_dir }}. Generated app secrets are in {{ shopsphere_ci_dir }}/.env (mode 600)."

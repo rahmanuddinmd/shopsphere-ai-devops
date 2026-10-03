@@ -1,0 +1,68 @@
+# =====================================================================
+# Helm values for kube-prometheus-stack on EKS (Prometheus Operator, Prometheus,
+# Alertmanager, Grafana, Node Exporter, kube-state-metrics).
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace -f monitoring/kube-prometheus-stack-values.yaml \
+#     --set grafana.adminPassword='<CHANGE_ME>'
+#   kubectl apply -f kubernetes/monitoring/
+# Sized small for training (2 x t3.medium nodes).
+# =====================================================================
+fullnameOverride: kps
+
+prometheus:
+  prometheusSpec:
+    retention: 3d
+    resources:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits: { memory: 1Gi }
+    # pick up ServiceMonitors / PrometheusRules labelled release=kube-prometheus-stack
+    serviceMonitorSelector:
+      matchLabels:
+        release: kube-prometheus-stack
+    ruleSelector:
+      matchLabels:
+        release: kube-prometheus-stack
+    storageSpec: {}   # emptyDir: metrics are lost on restart - acceptable for training, saves EBS cost
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+  config:
+    route:
+      receiver: "null"
+      group_by: [alertname, namespace]
+      routes:
+        - matchers: ['severity=~"critical|warning"', 'namespace=~"shopsphere-.*"']
+          receiver: shopsphere
+    receivers:
+      - name: "null"
+      # Training: alerts are visible in the Alertmanager UI (kubectl port-forward svc/kps-alertmanager 9093).
+      # Production: add slack_configs / email_configs / sns_configs here.
+      - name: shopsphere
+
+grafana:
+  adminUser: admin
+  # adminPassword is passed with --set, never committed
+  defaultDashboardsTimezone: browser
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+
+kube-state-metrics:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+
+prometheus-node-exporter:
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+
+# EKS manages these control-plane components; their endpoints are not scrapeable
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeEtcd: { enabled: false }
+kubeProxy: { enabled: false }

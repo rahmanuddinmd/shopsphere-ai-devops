@@ -1,0 +1,10 @@
+# Accepted risks. One ID per line. EVERY entry needs: reason, owner, review date.
+# An entry without an expiry is a permanent hole - review this file every sprint.
+#
+# Example:
+# CVE-2099-12345   # transitive in library X, not reachable (no XML parsing), owner: @rahmanuddinmd, review: 2026-12-31
+#
+# Kubernetes/Terraform misconfiguration IDs accepted for the TRAINING environment only:
+AVD-AWS-0040   # EKS public API endpoint - needed for laptop kubectl; restrict public_access_cidrs to your IP. review: Phase 23
+AVD-AWS-0041   # EKS public API open CIDR - same as above. review: Phase 23
+AVD-AWS-0053   # ALB is internet-facing by design (public shop). review: never

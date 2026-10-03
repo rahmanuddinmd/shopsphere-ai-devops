@@ -1,0 +1,30 @@
+# PROD - promoted with the SAME image tag that passed DEV (build once, promote many).
+# COST: this overlay creates its own ALB. In training, deploy it only during the promotion
+# exercise and remove it afterwards with: bash scripts/destroy.sh prod
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: shopsphere-prod
+resources:
+  - namespace.yaml
+  - ../../base
+components:
+  - ../../components/aws-alb
+images:
+  - name: shopsphere-backend
+    newName: <YOUR_AWS_ACCOUNT_ID>.dkr.ecr.<YOUR_AWS_REGION>.amazonaws.com/shopsphere-backend
+    newTag: <GIT_SHA>
+  - name: shopsphere-frontend
+    newName: <YOUR_AWS_ACCOUNT_ID>.dkr.ecr.<YOUR_AWS_REGION>.amazonaws.com/shopsphere-frontend
+    newTag: <GIT_SHA>
+patches:
+  - path: config-patch.yaml
+  - target: { kind: Deployment, name: backend }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+  - target: { kind: Ingress, name: shopsphere }
+    patch: |-
+      - op: replace
+        path: /metadata/annotations/alb.ingress.kubernetes.io~1tags
+        value: Project=ShopSphere,Environment=prod,ManagedBy=AWSLoadBalancerController

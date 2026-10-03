@@ -1,0 +1,22 @@
+# Trivy configuration shared by `trivy fs`, `trivy image` and `trivy config` in Jenkins.
+#   trivy fs --config security/trivy/trivy.yaml .
+#   trivy image --config security/trivy/trivy.yaml shopsphere-backend:<tag>
+#   trivy config --config security/trivy/trivy.yaml terraform kubernetes
+# Severity policy (see docs/security/trivy.md):
+#   CRITICAL with a fix available -> pipeline FAILS (--exit-code 1 --severity CRITICAL in Jenkinsfile)
+#   HIGH                          -> reported, reviewed; tightened to fail in Phase 23
+#   MEDIUM / LOW                  -> report only
+scan:
+  skip-dirs:
+    - "**/node_modules"
+    - "**/dist"
+    - "**/target"
+    - "**/.terraform"
+  scanners:
+    - vuln
+    - secret
+    - misconfig
+vulnerability:
+  ignore-unfixed: true
+ignorefile: security/trivy/.trivyignore
+format: table

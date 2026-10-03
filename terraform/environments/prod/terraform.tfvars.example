@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars (git-ignored) and adjust.
+aws_region          = "ap-south-1"
+environment         = "prod"
+kubernetes_version  = "1.35"
+node_instance_types = ["t3.medium"]
+node_capacity_type  = "ON_DEMAND" # SPOT is cheaper for training but nodes can be reclaimed
+node_desired_size   = 2
+public_access_cidrs = ["0.0.0.0/0"] # better: ["<YOUR_PUBLIC_IP>/32"]  (curl -s https://checkip.amazonaws.com)
+enable_rds                = false
+enable_container_insights = false
+create_jenkins_user       = true
+monthly_budget_usd        = 15
+budget_emails             = ["<YOUR_EMAIL>"]

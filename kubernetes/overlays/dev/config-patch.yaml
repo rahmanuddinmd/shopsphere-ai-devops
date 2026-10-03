@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shopsphere-config
+data:
+  SPRING_PROFILES_ACTIVE: "dev"
+  # Same-origin through the ALB, so CORS is only needed for local tools; keep it strict.
+  CORS_ALLOWED_ORIGINS: "http://localhost:5173"
+  # bedrock (Pod Identity) or disabled. Ollama on EKS would need a GPU/large node - not cost-safe.
+  AI_PROVIDER: "disabled"
+  AWS_REGION: "ap-south-1"
+  BEDROCK_MODEL_ID: ""

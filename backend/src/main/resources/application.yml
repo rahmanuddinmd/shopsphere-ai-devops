@@ -1,0 +1,89 @@
+# =====================================================================
+# ShopSphere AI - backend configuration
+# Every value comes from an environment variable (see .env.example and
+# docs/architecture/conventions.md). Defaults are for local development only.
+# =====================================================================
+spring:
+  application:
+    name: shopsphere-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:shopsphere}
+    username: ${DB_USERNAME:shopsphere}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      connection-timeout: 10000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate          # schema is owned by Flyway, Hibernate only validates it
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework   # correct scheme/host behind the ALB / Nginx
+  error:
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true           # /actuator/health/liveness and /readiness for Kubernetes
+      show-details: when-authorized
+      roles: ADMIN
+  health:
+    readinessstate:
+      enabled: true
+    livenessstate:
+      enabled: true
+  info:
+    env:
+      enabled: true
+  metrics:
+    tags:
+      application: shopsphere-backend
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true   # enables p95/p99 latency in Grafana
+
+info:
+  app:
+    name: ShopSphere AI
+    environment: ${SPRING_PROFILES_ACTIVE:local}
+    image-tag: ${IMAGE_TAG:local}
+
+logging:
+  level:
+    root: INFO
+    com.shopsphere: INFO
+# JSON logs in containers: set LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs (done in docker-compose and Kubernetes)
+
+shopsphere:
+  security:
+    jwt-secret: ${JWT_SECRET:}
+    jwt-expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+  admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+  ai:
+    provider: ${AI_PROVIDER:disabled}
+    ollama-base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    ollama-model: ${OLLAMA_MODEL:llama3.2:3b}
+    aws-region: ${AWS_REGION:ap-south-1}
+    bedrock-model-id: ${BEDROCK_MODEL_ID:}
+    timeout-seconds: ${AI_TIMEOUT_SECONDS:60}

@@ -1,0 +1,41 @@
+---
+- name: Add the official Docker apt repository (deb822 format, signed key)
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: [deb]
+    uris: https://download.docker.com/linux/ubuntu
+    suites: ["{{ ansible_facts['distribution_release'] }}"]
+    components: [stable]
+    architectures: ["{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}"]
+    signed_by: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Install Docker Engine and Compose v2
+  ansible.builtin.apt:
+    name: "{{ docker_packages }}"
+    state: present
+    update_cache: true
+
+- name: Configure Docker log rotation (prevents full disks)
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    mode: "0644"
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "20m", "max-file": "3" }
+      }
+  notify: Restart docker
+
+- name: Enable and start Docker
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Allow users to run docker without sudo
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users }}"

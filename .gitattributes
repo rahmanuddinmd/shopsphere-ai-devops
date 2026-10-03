@@ -1,0 +1,15 @@
+# Normalise line endings: LF in the repo, so shell scripts work inside Linux containers.
+* text=auto eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files - never diff or convert
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.zip binary
+*.pdf binary

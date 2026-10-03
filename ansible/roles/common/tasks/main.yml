@@ -1,0 +1,62 @@
+---
+- name: Wait for cloud-init to finish (fresh EC2 instance)
+  ansible.builtin.command: cloud-init status --wait
+  changed_when: false
+  failed_when: false
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Set timezone
+  ansible.builtin.command: timedatectl set-timezone {{ common_timezone }}
+  changed_when: false
+
+- name: Kernel settings required by SonarQube (Elasticsearch) and many open files
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-shopsphere.conf
+    mode: "0644"
+    content: |
+      vm.max_map_count=524288
+      fs.file-max=131072
+      vm.swappiness=10
+  notify: Apply sysctl
+
+- name: Check whether the swap file exists
+  ansible.builtin.stat:
+    path: /swapfile
+  register: common_swapfile
+
+- name: Create swap file
+  ansible.builtin.command: fallocate -l {{ common_swap_size_mb }}M /swapfile
+  args:
+    creates: /swapfile
+  when: not common_swapfile.stat.exists and common_swap_size_mb | int > 0
+
+- name: Secure, format and enable swap
+  ansible.builtin.shell: |
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+  args:
+    executable: /bin/bash
+  when: not common_swapfile.stat.exists and common_swap_size_mb | int > 0
+  changed_when: true
+
+- name: Persist swap in fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: "/swapfile none swap sw 0 0"
+    state: present
+  when: common_swap_size_mb | int > 0
+
+- name: Enable automatic security updates
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";

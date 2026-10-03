@@ -1,0 +1,20 @@
+# Base manifests shared by every environment. Overlays (kubernetes/overlays/*) set the
+# namespace, image registry/tag, replicas, ingress and secrets.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: shopsphere
+    includeSelectors: false
+resources:
+  - configmap.yaml
+  - database/service.yaml
+  - database/statefulset.yaml
+  - backend/serviceaccount.yaml
+  - backend/deployment.yaml
+  - backend/service.yaml
+  - backend/hpa.yaml
+  - backend/pdb.yaml
+  - frontend/deployment.yaml
+  - frontend/service.yaml
+  - frontend/pdb.yaml

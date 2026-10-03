@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/component: api
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5          # kubectl rollout undo can go back 5 versions
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0            # never drop below desired capacity during a deploy
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/component: api
+    spec:
+      serviceAccountName: shopsphere-backend
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: backend
+      containers:
+        - name: backend
+          image: shopsphere-backend:local   # overlays replace this with the ECR image + Git SHA tag
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: shopsphere-config
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef: { name: shopsphere-secrets, key: DB_USERNAME }
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: shopsphere-secrets, key: DB_PASSWORD }
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef: { name: shopsphere-secrets, key: JWT_SECRET }
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: shopsphere-secrets, key: ADMIN_PASSWORD }
+          # startupProbe: give Spring Boot + Flyway up to 150 s before liveness starts checking
+          startupProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 5
+            failureThreshold: 30
+          # readinessProbe: only receive traffic when the app AND database are ready
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # livenessProbe: restart the container if the JVM is stuck
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 10"]   # let the ALB deregister the pod before shutdown
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

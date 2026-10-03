@@ -1,0 +1,73 @@
+# Lightweight PR validation on GitHub-hosted runners.
+# Jenkins remains the primary CI/CD (quality gates, security scans, images, deployments).
+# This workflow gives fast feedback on every pull request and shows GitHub Actions vs Jenkins.
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend - compile & unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - run: chmod +x mvnw && ./mvnw -B -ntp verify
+
+  frontend:
+    name: Frontend - tests & build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+
+  lint-infra:
+    name: Lint - Kubernetes, Terraform format, shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kustomize build all overlays
+        run: for o in local dev staging prod; do kubectl kustomize kubernetes/overlays/$o > /dev/null && echo "ok $o"; done
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive terraform
+      - name: ShellCheck
+        run: shellcheck -S warning scripts/*.sh jenkins/scripts/*.sh nexus/*.sh
+
+  ansible:
+    name: Lint - Ansible
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install ansible-core && pipx install ansible-lint
+      - run: cp inventory/hosts.ini.example inventory/hosts.ini && ansible-playbook playbooks/ci-server.yml --syntax-check
+      - run: ansible-lint playbooks/ci-server.yml

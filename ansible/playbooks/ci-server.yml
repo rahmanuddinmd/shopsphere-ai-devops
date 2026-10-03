@@ -1,0 +1,15 @@
+---
+# Provisions the ShopSphere CI/tooling server:
+#   OS hardening basics -> Docker Engine + Compose -> repository -> Jenkins + SonarQube + Nexus.
+# Usage (from ansible/):
+#   ansible-playbook playbooks/ci-server.yml --syntax-check
+#   ansible-playbook playbooks/ci-server.yml --check      # dry run
+#   ansible-playbook playbooks/ci-server.yml
+- name: Configure ShopSphere CI server
+  hosts: ci_servers
+  become: true
+  gather_facts: true
+  roles:
+    - role: common
+    - role: docker
+    - role: shopsphere_ci

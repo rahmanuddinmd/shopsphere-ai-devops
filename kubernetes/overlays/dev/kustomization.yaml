@@ -1,0 +1,19 @@
+# DEV on Amazon EKS. scripts/deploy.sh / Jenkins set the real ECR image and Git SHA tag with:
+#   kustomize edit set image shopsphere-backend=<ECR>/shopsphere-backend:<sha>
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: shopsphere-dev
+resources:
+  - namespace.yaml
+  - ../../base
+components:
+  - ../../components/aws-alb
+images:
+  - name: shopsphere-backend
+    newName: <YOUR_AWS_ACCOUNT_ID>.dkr.ecr.<YOUR_AWS_REGION>.amazonaws.com/shopsphere-backend
+    newTag: <GIT_SHA>
+  - name: shopsphere-frontend
+    newName: <YOUR_AWS_ACCOUNT_ID>.dkr.ecr.<YOUR_AWS_REGION>.amazonaws.com/shopsphere-frontend
+    newTag: <GIT_SHA>
+patches:
+  - path: config-patch.yaml

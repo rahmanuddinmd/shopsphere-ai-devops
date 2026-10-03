@@ -1,0 +1,14 @@
+# Variables for the CI/tooling server (Jenkins, SonarQube, Nexus via Docker Compose profile "ci").
+shopsphere_ci_repo_url: "https://github.com/rahmanuddinmd/shopsphere-ai-devops.git"
+shopsphere_ci_repo_branch: "develop"
+shopsphere_ci_dir: "/opt/shopsphere"
+common_timezone: "Asia/Kolkata"
+
+# Compose profiles started on the server. Add "monitoring" if the VM has >= 16 GB RAM.
+shopsphere_ci_compose_profiles: ["ci"]
+
+# Swap protects an 8 GB t3.large from OOM kills when Jenkins, SonarQube and Nexus all start.
+common_swap_size_mb: 4096
+
+# Jenkins Configuration-as-Code (credentials, SonarQube server). Leave false for manual setup.
+shopsphere_ci_enable_jcasc: false

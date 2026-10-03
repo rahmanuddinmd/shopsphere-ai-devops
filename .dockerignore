@@ -1,0 +1,45 @@
+# =====================================================================
+# ShopSphere AI - root .dockerignore
+# Applies ONLY when the Docker build context is the repository root.
+# backend/ and frontend/ get their own .dockerignore in Phase 5,
+# because their Dockerfiles use their own folder as the build context.
+# Purpose: smaller build context, faster builds, no secrets in images.
+# =====================================================================
+
+# VCS and CI metadata
+.git
+.gitignore
+.gitattributes
+.github
+
+# Secrets - must never be copied into an image layer
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.aws
+kubeconfig*
+
+# Build outputs and dependencies (rebuilt inside the image)
+**/target
+**/node_modules
+**/dist
+**/coverage
+
+# Infrastructure and docs are never part of an application image
+terraform
+kubernetes
+helm
+monitoring
+docs
+diagrams
+postman
+security/reports
+
+# Editor / OS noise
+.idea
+.vscode
+**/*.iml
+**/.DS_Store
+**/*.log
